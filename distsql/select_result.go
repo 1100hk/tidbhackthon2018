@@ -14,6 +14,13 @@
 package distsql
 
 import (
+	"bufio"
+	"github.com/pingcap/parser/model"
+	"github.com/pingcap/parser/mysql"
+	"log"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pingcap/errors"
@@ -32,6 +39,7 @@ import (
 var (
 	_ SelectResult = (*selectResult)(nil)
 	_ SelectResult = (*streamResult)(nil)
+	_ SelectResult = (*csvSelectResult)(nil)
 )
 
 // SelectResult is an iterator of coprocessor partial results.
@@ -50,6 +58,146 @@ type resultWithErr struct {
 	result kv.ResultSubset
 	err    error
 }
+
+type row struct{
+	cols []interface{}
+}
+
+type csvSelectResult struct{
+	fieldTypes []*types.FieldType
+	isOver chan bool
+	over bool
+	dataChunck chan chunk.Chunk  //this is for data from csv
+	dataRow chan row
+	data chunk.Chunk //this is for data storage
+	dataR row
+	info []*model.ColumnInfo
+}
+
+func (r *csvSelectResult) fetch(){
+	for{
+
+
+		break
+	}
+}
+
+func (r *csvSelectResult) Fetch(ctx context.Context) {
+	go r.fetch()
+}
+
+func (r *csvSelectResult) NextRaw(context.Context) ([]byte, error) {
+	log.Print("IN NEXTRAW")
+	return nil,nil
+}
+
+func (r *csvSelectResult) Next(ctx context.Context, chk *chunk.Chunk) error{
+	chk.Reset()
+	for {
+		if r.over==true && len(r.dataRow)==0 {
+			break
+		}
+		select{
+			case r.over = <-r.isOver:{
+
+				break
+			}
+			case r.dataR = <- r.dataRow :{
+				//copy it to chk
+				//r.data.GetRow(0)
+				//r.dataR.cols[0]
+				for i:=0;i< len(r.info);i++ {
+					switch r.info[i].Tp {
+					case mysql.TypeLong:
+						x,_ := r.dataR.cols[i].(int)
+						chk.AppendInt64(i,int64(x))
+
+					}
+				}
+				break
+			}
+
+		}
+
+	}
+
+	return nil
+}
+
+func (r *csvSelectResult) Close() error{
+	return nil
+}
+
+type csvReader struct{
+	path string
+	isOver chan bool
+	dataChunck chan chunk.Chunk
+	dataRow chan row
+	info []*model.ColumnInfo
+	//schema
+}
+func (cR *csvReader) readFile(){
+	//suppose we know the schema,later we need to store the schema,when init the csvReader
+	f,err := os.OpenFile(cR.path,os.O_RDONLY,0644)
+	if err != nil{
+		log.Println("OPEN ERROR")
+		return // there maybe some send some infos to let the csvSR know nothing this time
+	}
+	defer f.Close()
+	reader := bufio.NewReader(f)
+	for{
+		recordTemp,_,err:=reader.ReadLine()
+		if err!=nil {
+			log.Println("Read Over")
+			break
+		}
+		dataVal := make([]interface{},0)
+		recordTemp = recordTemp[:len(recordTemp)]
+		recordTempS := string(recordTemp)
+		records:=strings.Split(recordTempS,",")
+		for i:=0;i<len(cR.info);i++  {
+			switch cR.info[i].Tp {
+				case mysql.TypeLong:{
+					x1,err1 := strconv.Atoi(string(records[cR.info[i].Offset]))
+					if  err1 != nil {
+						log.Print(err1)
+					}
+					dataVal = append(dataVal,x1)
+				}
+			}
+		}
+		/*brecord0 := recordTemp[:i]
+		brecord1 := recordTemp[i+1:len(recordTemp)]
+		x1,err1 := strconv.Atoi(string(brecord0))
+		x2,err2 := strconv.Atoi(string(brecord1))
+		if err2 != nil || err1 != nil {
+			log.Print(err1,err2)
+		}*/
+		data := row{dataVal}
+		/*fields := []*types.FieldType{types.NewFieldType(mysql.TypeLonglong),types.NewFieldType(mysql.TypeLonglong)}
+		chk := chunk.New(fields, 32, 1024)
+		chk.AppendInt64(0,int64(x1))
+		chk.AppendInt64(1,int64(x2))*/
+		//cR.dataChunck <- *chk
+		cR.dataRow<-data
+	}
+	cR.isOver<-true
+}
+
+//BY LANHAI:this function will be called to create a csvSR
+func GetCSVSelectResult(path string,info []*model.ColumnInfo)(SelectResult, error){
+	//dataChunckChan := make(chan chunk.Chunk,1)
+	dataRowChan := make(chan row,1)
+	isOver := make(chan bool,1)
+	//info[0].Tp ==
+	cReader := csvReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info}
+	go (&cReader).readFile()
+	return &csvSelectResult{dataRow:dataRowChan,isOver:isOver,info:info},nil
+	//return &csvSelectResult{},nil
+	//return nil,nil
+}
+
+
 
 type selectResult struct {
 	label string
@@ -82,7 +230,7 @@ func (r *selectResult) fetch(ctx context.Context) {
 		metrics.DistSQLQueryHistgram.WithLabelValues(r.label, r.sqlType).Observe(duration.Seconds())
 	}()
 	for {
-		resultSubset, err := r.resp.Next(ctx)
+		resultSubset, err := r.resp.Next(ctx) //BY LANHAI:THIS A NEED TO IMPLIMENT THE CSV READER
 		if err != nil {
 			r.results <- resultWithErr{err: errors.Trace(err)}
 			return

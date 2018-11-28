@@ -14,6 +14,7 @@
 package executor
 
 import (
+	"log"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -126,6 +127,19 @@ func (e *TableReaderExecutor) Close() error {
 // buildResp first builds request and sends it to tikv using distsql.Select. It uses SelectResut returned by the callee
 // to fetch all results.
 func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Range) (distsql.SelectResult, error) {
+
+
+	if e.table.Meta().Name.O =="testcsv" { //BY LANHAI:actually,should read from system table to know weather the accessing table is a csv File
+		log.Print("test csv in tablereaderexecutor")
+		//BY LANHAI:there,we create a SelectResult of csv.
+		result,err := distsql.GetCSVSelectResult("/Users/Hai/Desktop/t1.csv",e.columns)
+		if err!=nil {
+			return nil,errors.Trace(err)
+		}
+		result.Fetch(ctx)
+		return result,nil
+
+	}
 	var builder distsql.RequestBuilder
 	kvReq, err := builder.SetTableRanges(e.physicalTableID, ranges, e.feedback).
 		SetDAGRequest(e.dagPB).

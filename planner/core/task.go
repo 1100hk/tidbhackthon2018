@@ -15,6 +15,7 @@ package core
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/pingcap/parser/charset"
@@ -36,6 +37,40 @@ type task interface {
 	plan() PhysicalPlan
 	invalid() bool
 }
+
+
+type csvTask struct {
+	p PhysicalPlan
+	path string
+	cst float64
+}
+
+func (t *csvTask) count() float64{
+	return 111110.0
+}
+
+func (t *csvTask) addCost(cost float64){
+	t.cst+=cost
+}
+
+func (t *csvTask) cost() float64{
+	return 0.0
+}
+
+func (t *csvTask) copy() task{
+	nt := *t
+	return &nt
+}
+
+func (t *csvTask)plan()PhysicalPlan{
+	return t.p
+}
+
+func (t *csvTask) invalid()bool{
+	return t.p==nil
+}
+
+
 
 // copTask is a task that runs in a distributed kv store.
 // TODO: In future, we should split copTask to indexTask and tableTask.
@@ -94,6 +129,10 @@ func attachPlan2Task(p PhysicalPlan, t task) task {
 			p.SetChildren(v.indexPlan)
 			v.indexPlan = p
 		}
+	case *csvTask:
+		log.Print("in attachPlan2Task")
+		p.SetChildren(v.p)
+		v.p = p
 	case *rootTask:
 		p.SetChildren(v.p)
 		v.p = p
@@ -349,6 +388,10 @@ func (p *PhysicalProjection) attach2Task(tasks ...task) task {
 	switch tp := t.(type) {
 	case *copTask:
 		// TODO: Support projection push down.
+		t = finishCopTask(p.ctx, t)
+		t = attachPlan2Task(p, t)
+		return t
+	case *csvTask:
 		t = finishCopTask(p.ctx, t)
 		t = attachPlan2Task(p, t)
 		return t

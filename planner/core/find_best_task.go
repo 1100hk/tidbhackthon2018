@@ -14,6 +14,7 @@
 package core
 
 import (
+	"log"
 	"math"
 
 	"github.com/pingcap/errors"
@@ -43,7 +44,7 @@ const (
 
 // wholeTaskTypes records all possible kinds of task that a plan can return. For Agg, TopN and Limit, we will try to get
 // these tasks one by one.
-var wholeTaskTypes = [...]property.TaskType{property.CopSingleReadTaskType, property.CopDoubleReadTaskType, property.RootTaskType}
+var wholeTaskTypes = [...]property.TaskType{property.CopSingleReadTaskType, property.CopDoubleReadTaskType, property.RootTaskType,property.CSVTaskType}
 
 var invalidTask = &rootTask{cst: math.MaxFloat64}
 
@@ -78,6 +79,7 @@ func (p *LogicalTableDual) findBestTask(prop *property.PhysicalProperty) (task, 
 // findBestTask implements LogicalPlan interface.
 func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTask task, err error) {
 	// If p is an inner plan in an IndexJoin, the IndexJoin will generate an inner plan by itself,
+
 	// and set inner child prop nil, so here we do nothing.
 	if prop == nil {
 		return nil, nil
@@ -134,8 +136,18 @@ func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTas
 			continue
 		}
 
+		csvTTT,ok := childTasks[0].(*csvTask)
+		if ok {
+			log.Println(csvTTT.path)
+		}
+
 		// combine best child tasks with parent physical plan.
+		//log.Println("len_of_child:",len(childTasks))
 		curTask := pp.attach2Task(childTasks...)
+
+		if curTask == nil {
+			log.Println("it is nil1")
+		}
 
 		// enforce curTask property
 		if prop.Enforced {
@@ -143,6 +155,9 @@ func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTas
 		}
 
 		// get the most efficient one.
+		if curTask == nil {
+			log.Println("it is nil2")
+		}
 		if curTask.cost() < bestTask.cost() {
 			bestTask = curTask
 		}
@@ -264,7 +279,32 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 				p: dual,
 			}, nil
 		}
+		if path.isTablePath{
+			//this info should storage the system table.
+			if ds.tableInfo.Name.L == "testcsv"{
+				log.Print("it is csv")
+				log.Println("len path",len(ds.possibleAccessPaths))
+				// just to use the
+				prop.TaskTp=property.CSVTaskType
+				tblTask, err := ds.convertToTableScan(prop, path)
+				if err!=nil {
+					return nil,errors.Trace(err)
+				}
+				if tblTask.cost() < t.cost() {
+					log.Println("plan:",tblTask.plan())
+					return &csvTask{
+						p:tblTask.plan(),
+						path:"/Users/Hai/Desktop/t1.csv",
+					},nil
+				}
+				continue
+
+			}
+		}
 		if path.isTablePath {
+			if ds.tableInfo.Name.L == "testcsv2"{
+				log.Print("it is csv22")
+			}
 			tblTask, err := ds.convertToTableScan(prop, path)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -561,9 +601,13 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 		} else {
 			return invalidTask, nil
 		}
-		ts.addPushedDownSelection(copTask, ds.stats.ScaleByExpectCnt(expectedCnt))
+		if prop.TaskTp == property.CSVTaskType {
+			log.Println("xxx")
+		}else{
+			ts.addPushedDownSelection(copTask, ds.stats.ScaleByExpectCnt(expectedCnt))
+		}
 	}
-	if prop.TaskTp == property.RootTaskType {
+	if prop.TaskTp == property.RootTaskType|| prop.TaskTp == property.CSVTaskType {
 		task = finishCopTask(ds.ctx, task)
 	} else if _, ok := task.(*rootTask); ok {
 		return invalidTask, nil
