@@ -15,7 +15,6 @@ package core
 
 import (
 	"fmt"
-	"log"
 	"math"
 
 	"github.com/pingcap/parser/charset"
@@ -130,7 +129,6 @@ func attachPlan2Task(p PhysicalPlan, t task) task {
 			v.indexPlan = p
 		}
 	case *csvTask:
-		log.Print("in attachPlan2Task")
 		p.SetChildren(v.p)
 		v.p = p
 	case *rootTask:

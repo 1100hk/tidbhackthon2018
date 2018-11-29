@@ -1839,13 +1839,12 @@ func getDataSourceInfo(tableName string)(int,string,string){
 	for {
 		recordTemp, _, err := reader.ReadLine()
 		if err != nil {
-			log.Println("Read Over")
+			//log.Println("Read Over")
 			break
 		}
 		recordTemp = recordTemp[:len(recordTemp)]
 		recordTempS := string(recordTemp)
 		records := strings.Split(recordTempS, ",")
-		log.Println(records)
 		if records[0]==tableName {
 			return 1,records[1],records[2]
 		}

@@ -14,7 +14,6 @@
 package executor
 
 import (
-	"log"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -26,7 +25,7 @@ import (
 	"github.com/pingcap/tidb/table"
 	"github.com/pingcap/tidb/util/chunk"
 	"github.com/pingcap/tidb/util/ranger"
-	tipb "github.com/pingcap/tipb/go-tipb"
+	"github.com/pingcap/tipb/go-tipb"
 	"golang.org/x/net/context"
 )
 
@@ -131,7 +130,6 @@ func (e *TableReaderExecutor) Close() error {
 func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Range) (distsql.SelectResult, error) {
 
 	if e.sourceType == "csv"{
-		log.Print("test csv in tablereaderexecutor")
 		//BY LANHAI:there,we create a SelectResult of csv.
 		result,err := distsql.GetCSVSelectResult(e.pathInfo,e.columns)
 		if err!=nil {

@@ -14,7 +14,6 @@
 package core
 
 import (
-	"log"
 	"math"
 
 	"github.com/pingcap/errors"
@@ -146,11 +145,6 @@ func physicalOptimize(logic LogicalPlan) (PhysicalPlan, error) {
 	}
 
 	t.plan().ResolveIndices()
-	//log.Print(t.)
-	x,ok := t.(*csvTask)
-	if ok {
-		log.Print("plan::::",x.plan())
-	}
 	return t.plan(), nil
 }
 

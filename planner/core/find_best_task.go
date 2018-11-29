@@ -142,12 +142,8 @@ func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTas
 		}
 
 		// combine best child tasks with parent physical plan.
-		//log.Println("len_of_child:",len(childTasks))
 		curTask := pp.attach2Task(childTasks...)
 
-		if curTask == nil {
-			log.Println("it is nil1")
-		}
 
 		// enforce curTask property
 		if prop.Enforced {
@@ -155,9 +151,6 @@ func (p *baseLogicalPlan) findBestTask(prop *property.PhysicalProperty) (bestTas
 		}
 
 		// get the most efficient one.
-		if curTask == nil {
-			log.Println("it is nil2")
-		}
 		if curTask.cost() < bestTask.cost() {
 			bestTask = curTask
 		}
@@ -317,8 +310,6 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 
 			}*/
 			if ds.SourceType == "csv"{
-				log.Print("it is csv")
-				log.Println("len path",len(ds.possibleAccessPaths))
 				// just to use the
 				prop.TaskTp=property.CSVTaskType
 				tblTask, err := ds.convertToTableScan(prop, path)
@@ -326,7 +317,6 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 					return nil,errors.Trace(err)
 				}
 				if tblTask.cost() < t.cost() {
-					log.Println("plan:",tblTask.plan())
 					return &csvTask{
 						p:tblTask.plan(),
 						path:ds.PathInfo,
@@ -337,9 +327,6 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 			}
 		}
 		if path.isTablePath {
-			if ds.tableInfo.Name.L == "testcsv2"{
-				log.Print("it is csv22")
-			}
 			tblTask, err := ds.convertToTableScan(prop, path)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -639,7 +626,7 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 			return invalidTask, nil
 		}
 		if prop.TaskTp == property.CSVTaskType {
-			log.Println("xxx")
+
 		}else{
 			ts.addPushedDownSelection(copTask, ds.stats.ScaleByExpectCnt(expectedCnt))
 		}

@@ -99,13 +99,9 @@ func (r *csvSelectResult) Next(ctx context.Context, chk *chunk.Chunk) error{
 		}
 		select{
 			case r.over = <-r.isOver:{
-
 				break
 			}
 			case r.dataR = <- r.dataRow :{
-				//copy it to chk
-				//r.data.GetRow(0)
-				//r.dataR.cols[0]
 				for i:=0;i< len(r.info);i++ {
 					switch r.info[i].Tp {
 					case mysql.TypeLong:
@@ -157,7 +153,7 @@ func (cR *csvReader) readFile(){
 	for{
 		recordTemp,_,err:=reader.ReadLine()
 		if err!=nil {
-			log.Println("Read Over")
+			//log.Println("Read Over")
 			break
 		}
 		dataVal := make([]interface{},0)
@@ -187,19 +183,8 @@ func (cR *csvReader) readFile(){
 				dataVal = append(dataVal,x1)
 			}
 		}}
-		/*brecord0 := recordTemp[:i]
-		brecord1 := recordTemp[i+1:len(recordTemp)]
-		x1,err1 := strconv.Atoi(string(brecord0))
-		x2,err2 := strconv.Atoi(string(brecord1))
-		if err2 != nil || err1 != nil {
-			log.Print(err1,err2)
-		}*/
+
 		data := row{dataVal}
-		/*fields := []*types.FieldType{types.NewFieldType(mysql.TypeLonglong),types.NewFieldType(mysql.TypeLonglong)}
-		chk := chunk.New(fields, 32, 1024)
-		chk.AppendInt64(0,int64(x1))
-		chk.AppendInt64(1,int64(x2))*/
-		//cR.dataChunck <- *chk
 		cR.dataRow<-data
 	}
 	cR.isOver<-true
