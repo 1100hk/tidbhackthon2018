@@ -14,6 +14,8 @@
 package expression
 
 import (
+	"fmt"
+	"github.com/pingcap/tidb/util/sqlexec"
 	"strings"
 
 	"github.com/pingcap/errors"
@@ -35,6 +37,8 @@ var (
 	_ functionClass = &valuesFunctionClass{}
 	_ functionClass = &bitCountFunctionClass{}
 	_ functionClass = &getParamFunctionClass{}
+	_ functionClass = &registerCSVTableClass{}
+	_ functionClass = &unregisterCSVTableClass{}
 )
 
 var (
@@ -60,7 +64,89 @@ var (
 	_ builtinFunc = &builtinValuesJSONSig{}
 	_ builtinFunc = &builtinBitCountSig{}
 	_ builtinFunc = &builtinGetParamStringSig{}
+	_ builtinFunc = &builtinRegisterCSVSig{}
+	_ builtinFunc = &builtinUnregisterCSVSig{}
 )
+
+type unregisterCSVTableClass struct{
+	baseFunctionClass
+}
+func (c *unregisterCSVTableClass) getFunction(ctx sessionctx.Context, args []Expression) (sig builtinFunc, err error) {
+	argTps := make([]types.EvalType, len(args))
+	for i := range args {
+		argTps[i] = args[0].GetType().EvalType()
+	}
+	bf := newBaseBuiltinFuncWithTp(ctx, args, types.ETInt, argTps...)
+	sig = &builtinUnregisterCSVSig{baseBuiltinFunc: bf}
+	return sig,nil
+}
+
+
+type builtinUnregisterCSVSig struct {
+	baseBuiltinFunc
+}
+
+func (b *builtinUnregisterCSVSig) Clone() builtinFunc {
+	newSig := &builtinUnregisterCSVSig{}
+	newSig.cloneFrom(&b.baseBuiltinFunc)
+	return newSig
+}
+
+func (b *builtinUnregisterCSVSig) evalInt(row chunk.Row) (int64, bool, error) {
+
+
+	//	_, _, err := ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(ctx, sql)
+	//	return errors.Trace(err)
+	tableName, _, _ := b.args[0].EvalString(b.ctx, row)
+	sql := fmt.Sprintf(`DELETE FROM mysql.csv_register  where table_name="%s"`,tableName)
+	_,_,err := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
+	if err!=nil {
+		return int64(1),false,nil
+	}
+	return int64(0),false,nil
+}
+
+type registerCSVTableClass struct {
+	baseFunctionClass
+}
+
+func (c *registerCSVTableClass) getFunction(ctx sessionctx.Context, args []Expression) (sig builtinFunc, err error) {
+	argTps := make([]types.EvalType, len(args))
+	for i := range args {
+		argTps[i] = args[0].GetType().EvalType()
+	}
+	bf := newBaseBuiltinFuncWithTp(ctx, args, types.ETInt, argTps...)
+	sig = &builtinRegisterCSVSig{baseBuiltinFunc: bf}
+	return sig,nil
+}
+
+type builtinRegisterCSVSig struct {
+	baseBuiltinFunc
+}
+
+
+func (b *builtinRegisterCSVSig) Clone() builtinFunc {
+	newSig := &builtinRegisterCSVSig{}
+	newSig.cloneFrom(&b.baseBuiltinFunc)
+	return newSig
+}
+
+func (b *builtinRegisterCSVSig) evalInt(row chunk.Row) (int64, bool, error) {
+
+
+	//	_, _, err := ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(ctx, sql)
+	//	return errors.Trace(err)
+	tableName, _, _ := b.args[0].EvalString(b.ctx, row)
+	sourceType, _, _ := b.args[1].EvalString(b.ctx, row)
+	pathInfo, _, _ := b.args[2].EvalString(b.ctx, row)
+	sql := fmt.Sprintf(`INSERT INTO mysql.csv_register  VALUES ("%s", "%s", "%s")`,tableName ,sourceType ,pathInfo )
+	_,_,err := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
+	if err!=nil {
+		return int64(1),false,nil
+	}
+	return int64(0),false,nil
+}
+
 
 type inFunctionClass struct {
 	baseFunctionClass

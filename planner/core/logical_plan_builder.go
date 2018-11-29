@@ -16,6 +16,7 @@ package core
 import (
 	"bufio"
 	"fmt"
+	"github.com/pingcap/tidb/util/sqlexec"
 	"log"
 	"math"
 	"math/bits"
@@ -1857,6 +1858,7 @@ func (b *PlanBuilder) buildDataSource(tn *ast.TableName) (LogicalPlan, error) {
 	if dbName.L == "" {
 		dbName = model.NewCIStr(b.ctx.GetSessionVars().CurrentDB)
 	}
+
 	//sql := fmt.Sprintf("select count(*) from `%s`.`%s` where `%s` is null limit 1;", schema.L, table.L, oldCol.L)
 	//sql := fmt.Sprintf("select * from mysql.ds_meta where table_name='%s';",tn.Name)
 	//rows ,_,_ := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
@@ -1897,7 +1899,21 @@ func (b *PlanBuilder) buildDataSource(tn *ast.TableName) (LogicalPlan, error) {
 		statisticTable = getStatsTable(b.ctx, tbl.Meta(), tbl.Meta().ID)
 	}
 	//there should be to visit the system table to know :SourceType and Path
-	_,sourceType,pathInfo := getDataSourceInfo(tn.Name.L)
+	var sourceType,pathInfo string
+	if tn.Name.L=="csv_register" {
+
+	}else{
+		///_,sourceType,pathInfo = getDataSourceInfo(tn.Name.L)
+		sql := fmt.Sprintf("select * from mysql.csv_register where table_name='%s';",tn.Name.L)
+		rows ,_,_ := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
+		if len(rows)==1{
+			//log.Println("find it")
+			sourceType = rows[0].GetString(1)
+			pathInfo = rows[0].GetString(2)
+		}else{
+			//log.Println("internal")
+		}
+	}
 	ds := DataSource{
 		DBName:              dbName,
 		table:               tbl,

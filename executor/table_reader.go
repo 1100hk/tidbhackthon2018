@@ -129,6 +129,8 @@ func (e *TableReaderExecutor) Close() error {
 // to fetch all results.
 func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Range) (distsql.SelectResult, error) {
 
+	//this is for debug the gRPC
+	
 	if e.sourceType == "csv"{
 		//BY LANHAI:there,we create a SelectResult of csv.
 		result,err := distsql.GetCSVSelectResult(e.pathInfo,e.columns)

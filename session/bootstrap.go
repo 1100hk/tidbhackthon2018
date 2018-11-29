@@ -209,6 +209,12 @@ const (
 		feedback blob NOT NULL,
 		index hist(table_id, is_index, hist_id)
 	);`
+
+	CreateRegisterCSVTable = `CREATE TABLE IF NOT EXISTS mysql.csv_register (
+		table_name text NOT NULL,
+		source_type text NOT NULL,
+		path_info text NOT NULL
+	);`
 )
 
 // bootstrap initiates system DB for a store.
@@ -720,6 +726,8 @@ func doDDLWorks(s Session) {
 	mustExecute(s, CreateGCDeleteRangeDoneTable)
 	// Create stats_feedback table.
 	mustExecute(s, CreateStatsFeedbackTable)
+	
+	mustExecute(s,CreateRegisterCSVTable)
 }
 
 // doDMLWorks executes DML statements in bootstrap stage.
