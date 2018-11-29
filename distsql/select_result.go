@@ -111,6 +111,15 @@ func (r *csvSelectResult) Next(ctx context.Context, chk *chunk.Chunk) error{
 					case mysql.TypeLong:
 						x,_ := r.dataR.cols[i].(int)
 						chk.AppendInt64(i,int64(x))
+					case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+						mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+						x,_ := r.dataR.cols[i].(string)
+						chk.AppendString(i,x)
+					}
+						case mysql.TypeFloat:{
+							x,_:=r.dataR.cols[i].(float64)
+							chk.AppendFloat32(i,float32(x))
+						}
 
 					}
 				}
@@ -164,8 +173,20 @@ func (cR *csvReader) readFile(){
 					}
 					dataVal = append(dataVal,x1)
 				}
+			case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+				mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+				x1 := string(records[cR.info[i].Offset])
+				dataVal = append(dataVal,x1)
 			}
-		}
+			case mysql.TypeFloat:{
+				//v1, err := strconv.ParseFloat(v, 32)
+				x1,err1 := strconv.ParseFloat(records[cR.info[i].Offset],32)
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+		}}
 		/*brecord0 := recordTemp[:i]
 		brecord1 := recordTemp[i+1:len(recordTemp)]
 		x1,err1 := strconv.Atoi(string(brecord0))
@@ -184,17 +205,14 @@ func (cR *csvReader) readFile(){
 	cR.isOver<-true
 }
 
+
 //BY LANHAI:this function will be called to create a csvSR
 func GetCSVSelectResult(path string,info []*model.ColumnInfo)(SelectResult, error){
-	//dataChunckChan := make(chan chunk.Chunk,1)
 	dataRowChan := make(chan row,1)
 	isOver := make(chan bool,1)
-	//info[0].Tp ==
 	cReader := csvReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info}
 	go (&cReader).readFile()
 	return &csvSelectResult{dataRow:dataRowChan,isOver:isOver,info:info},nil
-	//return &csvSelectResult{},nil
-	//return nil,nil
 }
 
 
@@ -230,7 +248,7 @@ func (r *selectResult) fetch(ctx context.Context) {
 		metrics.DistSQLQueryHistgram.WithLabelValues(r.label, r.sqlType).Observe(duration.Seconds())
 	}()
 	for {
-		resultSubset, err := r.resp.Next(ctx) //BY LANHAI:THIS A NEED TO IMPLIMENT THE CSV READER
+		resultSubset, err := r.resp.Next(ctx)
 		if err != nil {
 			r.results <- resultWithErr{err: errors.Trace(err)}
 			return
