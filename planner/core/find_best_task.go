@@ -607,8 +607,10 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 			ts.addPushedDownSelection(copTask, ds.stats.ScaleByExpectCnt(expectedCnt))
 		}
 	}
-	if prop.TaskTp == property.RootTaskType|| prop.TaskTp == property.CSVTaskType {
+	if prop.TaskTp == property.RootTaskType {
 		task = finishCopTask(ds.ctx, task)
+	}else if prop.TaskTp == property.CSVTaskType{
+		task = finishCSVTask(ds.ctx, task)
 	} else if _, ok := task.(*rootTask); ok {
 		return invalidTask, nil
 	}

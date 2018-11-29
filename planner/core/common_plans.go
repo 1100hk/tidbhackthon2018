@@ -503,8 +503,13 @@ func (e *Explain) explainPlanInRowFormat(p PhysicalPlan, taskType, indent string
 	}
 
 	switch copPlan := p.(type) {
-	case *PhysicalTableReader:
-		e.explainPlanInRowFormat(copPlan.tablePlan, "cop", childIndent, true)
+	case *PhysicalTableReader:{
+		if copPlan.SourceType=="csv" {
+			e.explainPlanInRowFormat(copPlan.tablePlan, "csv", childIndent, true)
+		}else{
+			e.explainPlanInRowFormat(copPlan.tablePlan, "cop", childIndent, true)
+		}
+	}
 	case *PhysicalIndexReader:
 		e.explainPlanInRowFormat(copPlan.indexPlan, "cop", childIndent, true)
 	case *PhysicalIndexLookUpReader:

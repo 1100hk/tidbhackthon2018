@@ -237,6 +237,7 @@ func (a *ExecStmt) Exec(ctx context.Context) (sqlexec.RecordSet, error) {
 		pi.SetProcessInfo(sql, time.Now(), cmd)
 	}
 
+
 	// If the executor doesn't return any result to the client, we execute it without delay.
 	if e.Schema().Len() == 0 {
 		log.Println("no result");
