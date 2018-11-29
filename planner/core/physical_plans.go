@@ -55,6 +55,8 @@ type PhysicalTableReader struct {
 
 	SourceType string
 
+	Path string
+
 	// TablePlans flats the tablePlan to construct executor pb.
 	TablePlans []PhysicalPlan
 	tablePlan  PhysicalPlan
@@ -163,6 +165,7 @@ type PhysicalTableScan struct {
 	rangeDecidedBy []*expression.Column
 
 	SourceType string
+	Path string
 }
 
 // IsPartition returns true and partition ID if it's actually a partition.

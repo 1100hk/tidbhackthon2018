@@ -281,7 +281,23 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 		}
 		if path.isTablePath{
 			//this info should storage the system table.
-			if ds.tableInfo.Name.L == "testcsv"{
+
+			//log.Println(ds.tableInfo.Name.L)
+			//
+			/*if ds.tableInfo.Name.L=="ds_meta" {
+				return nil, nil
+			}*/
+			//sql := fmt.Sprintf("select * from mysql.ds_meta where table_name='%s';",ds.tableInfo.Name.L)
+			//log.Println("in find",sql)
+			//ctxTmp := context.TODO()
+			//ctxTmp := ds.ctx
+			//rows,_,_ := ctxTmp.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(nil,sql)
+			//if err != nil {
+			//	log.Println(err)
+			//}
+			//log.Print("len:",len(rows))
+
+			/*if ds.tableInfo.Name.L == "testcsv"{
 				log.Print("it is csv")
 				log.Println("len path",len(ds.possibleAccessPaths))
 				// just to use the
@@ -295,6 +311,25 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 					return &csvTask{
 						p:tblTask.plan(),
 						path:"/Users/Hai/Desktop/t1.csv",
+					},nil
+				}
+				continue
+
+			}*/
+			if ds.SourceType == "csv"{
+				log.Print("it is csv")
+				log.Println("len path",len(ds.possibleAccessPaths))
+				// just to use the
+				prop.TaskTp=property.CSVTaskType
+				tblTask, err := ds.convertToTableScan(prop, path)
+				if err!=nil {
+					return nil,errors.Trace(err)
+				}
+				if tblTask.cost() < t.cost() {
+					log.Println("plan:",tblTask.plan())
+					return &csvTask{
+						p:tblTask.plan(),
+						path:ds.PathInfo,
 					},nil
 				}
 				continue
@@ -556,6 +591,8 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 		DBName:          ds.DBName,
 		isPartition:     ds.isPartition,
 		physicalTableID: ds.physicalTableID,
+		SourceType:ds.SourceType,
+		Path:ds.PathInfo,
 	}.Init(ds.ctx)
 	ts.SetSchema(ds.schema)
 	var pkCol *expression.Column
@@ -610,7 +647,7 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 	if prop.TaskTp == property.RootTaskType {
 		task = finishCopTask(ds.ctx, task)
 	}else if prop.TaskTp == property.CSVTaskType{
-		task = finishCSVTask(ds.ctx, task)
+		task = finishCSVTask(ds.ctx, task,ds.PathInfo)
 	} else if _, ok := task.(*rootTask); ok {
 		return invalidTask, nil
 	}

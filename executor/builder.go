@@ -1670,6 +1670,8 @@ func buildNoRangeTableReader(b *executorBuilder, v *plannercore.PhysicalTableRea
 		corColInFilter:  b.corColInDistPlan(v.TablePlans),
 		corColInAccess:  b.corColInAccess(v.TablePlans[0]),
 		plans:           v.TablePlans,
+		sourceType:ts.SourceType,
+		pathInfo:ts.Path,
 	}
 	if isPartition, physicalTableID := ts.IsPartition(); isPartition {
 		e.physicalTableID = physicalTableID

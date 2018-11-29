@@ -231,12 +231,12 @@ func (p *PhysicalMergeJoin) attach2Task(tasks ...task) task {
 	}
 }
 
-func finishCSVTask(ctx sessionctx.Context, task task) task{
+func finishCSVTask(ctx sessionctx.Context, task task,path string) task{
 	t,ok := task.(*copTask) //we just use the copTask to wrapper the csvTask
 	if !ok{
 		return task
 	}
-	p := PhysicalTableReader{tablePlan: t.tablePlan,SourceType:"csv"}.Init(ctx)
+	p := PhysicalTableReader{tablePlan: t.tablePlan,SourceType:"csv",Path:path}.Init(ctx)
 	p.stats = t.tablePlan.statsInfo()
 	newTask := &rootTask{
 		cst: t.cst,

@@ -310,6 +310,9 @@ type DataSource struct {
 	// The data source may be a partition, rather than a real table.
 	isPartition     bool
 	physicalTableID int64
+
+	SourceType string //this is used to know where the ds from
+	PathInfo string //if SourceType is csv ,we need know where it come from
 }
 
 // accessPath tells how we access one index or just access table.

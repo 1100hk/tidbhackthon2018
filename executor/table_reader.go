@@ -57,6 +57,8 @@ type TableReaderExecutor struct {
 	// corColInAccess tells whether there's correlated column in access conditions.
 	corColInAccess bool
 	plans          []plannercore.PhysicalPlan
+	sourceType string
+	pathInfo string
 }
 
 // Open initialzes necessary variables for using this executor.
@@ -128,18 +130,17 @@ func (e *TableReaderExecutor) Close() error {
 // to fetch all results.
 func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Range) (distsql.SelectResult, error) {
 
-
-	if e.table.Meta().Name.O =="testcsv" { //BY LANHAI:actually,should read from system table to know weather the accessing table is a csv File
+	if e.sourceType == "csv"{
 		log.Print("test csv in tablereaderexecutor")
 		//BY LANHAI:there,we create a SelectResult of csv.
-		result,err := distsql.GetCSVSelectResult("/Users/Hai/Desktop/t1.csv",e.columns)
+		result,err := distsql.GetCSVSelectResult(e.pathInfo,e.columns)
 		if err!=nil {
 			return nil,errors.Trace(err)
 		}
 		result.Fetch(ctx)
 		return result,nil
-
 	}
+
 	var builder distsql.RequestBuilder
 	kvReq, err := builder.SetTableRanges(e.physicalTableID, ranges, e.feedback).
 		SetDAGRequest(e.dagPB).

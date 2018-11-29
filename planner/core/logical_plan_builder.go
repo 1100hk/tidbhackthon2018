@@ -14,9 +14,12 @@
 package core
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"math"
 	"math/bits"
+	"os"
 	"reflect"
 	"strings"
 	"unicode"
@@ -1825,11 +1828,47 @@ func getStatsTable(ctx sessionctx.Context, tblInfo *model.TableInfo, pid int64) 
 	return statsTbl
 }
 
+func getDataSourceInfo(tableName string)(int,string,string){
+	f,err := os.OpenFile("/Users/Hai/Desktop/tabletype.csv",os.O_RDONLY,0644)
+	if err != nil{
+		log.Println("OPEN ERROR")
+		return 0,"","" // there maybe some send some infos to let the csvSR know nothing this time
+	}
+	defer f.Close()
+	reader := bufio.NewReader(f)
+	for {
+		recordTemp, _, err := reader.ReadLine()
+		if err != nil {
+			log.Println("Read Over")
+			break
+		}
+		recordTemp = recordTemp[:len(recordTemp)]
+		recordTempS := string(recordTemp)
+		records := strings.Split(recordTempS, ",")
+		log.Println(records)
+		if records[0]==tableName {
+			return 1,records[1],records[2]
+		}
+	}
+	return 0,"",""
+}
+
 func (b *PlanBuilder) buildDataSource(tn *ast.TableName) (LogicalPlan, error) {
 	dbName := tn.Schema
 	if dbName.L == "" {
 		dbName = model.NewCIStr(b.ctx.GetSessionVars().CurrentDB)
 	}
+	//sql := fmt.Sprintf("select count(*) from `%s`.`%s` where `%s` is null limit 1;", schema.L, table.L, oldCol.L)
+	//sql := fmt.Sprintf("select * from mysql.ds_meta where table_name='%s';",tn.Name)
+	//rows ,_,_ := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
+	//log.Print(rows)
+	//ctxTmp := b.ctx
+	//rows,_,err := ctxTmp.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(ctxTmp,sql)
+	//if err != nil {
+	//	log.Println(err)
+	//}
+	//log.Print(rows)
+	//now we just read a file to get the info
 
 	tbl, err := b.is.TableByName(dbName, tn.Name)
 	if err != nil {
@@ -1858,7 +1897,8 @@ func (b *PlanBuilder) buildDataSource(tn *ast.TableName) (LogicalPlan, error) {
 	if _, ok := tbl.(table.PartitionedTable); !ok {
 		statisticTable = getStatsTable(b.ctx, tbl.Meta(), tbl.Meta().ID)
 	}
-
+	//there should be to visit the system table to know :SourceType and Path
+	_,sourceType,pathInfo := getDataSourceInfo(tn.Name.L)
 	ds := DataSource{
 		DBName:              dbName,
 		table:               tbl,
@@ -1867,6 +1907,8 @@ func (b *PlanBuilder) buildDataSource(tn *ast.TableName) (LogicalPlan, error) {
 		indexHints:          tn.IndexHints,
 		possibleAccessPaths: possiblePaths,
 		Columns:             make([]*model.ColumnInfo, 0, len(columns)),
+		SourceType:sourceType,
+		PathInfo:pathInfo,
 	}.Init(b.ctx)
 
 	var handleCol *expression.Column
