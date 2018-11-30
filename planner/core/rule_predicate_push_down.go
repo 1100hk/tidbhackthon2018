@@ -99,7 +99,7 @@ func (p *LogicalUnionScan) PredicatePushDown(predicates []expression.Expression)
 
 // PredicatePushDown implements LogicalPlan PredicatePushDown interface.
 func (ds *DataSource) PredicatePushDown(predicates []expression.Expression) ([]expression.Expression, LogicalPlan) {
-	if ds.SourceType=="csv" {//BY LANHAI csvNot pushdown
+	if ds.SourceType=="csv" || ds.SourceType=="postgresql"{//BY LANHAI csvNot pushdown  || ds.SourceType=="postgresql"// we could pushdown the filter to pg
 		return predicates,ds
 	}
 	_, ds.pushedDownConds, predicates = expression.ExpressionsToPB(ds.ctx.GetSessionVars().StmtCtx, predicates, ds.ctx.GetClient())

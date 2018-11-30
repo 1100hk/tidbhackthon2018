@@ -30,6 +30,8 @@ const (
 
 	//
 	CSVTaskType
+
+	PGTaskTYPE
 )
 
 // String implements fmt.Stringer interface.

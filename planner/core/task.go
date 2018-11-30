@@ -244,6 +244,21 @@ func finishCSVTask(ctx sessionctx.Context, task task,path string) task{
 
 }
 
+func finishPGTask(ctx sessionctx.Context, task task,path string) task{
+	t,ok := task.(*copTask) //we just use the copTask to wrapper the csvTask
+	if !ok{
+		return task
+	}
+	p := PhysicalTableReader{tablePlan: t.tablePlan,SourceType:"postgresql",Path:path}.Init(ctx)
+	p.stats = t.tablePlan.statsInfo()
+	newTask := &rootTask{
+		cst: t.cst,
+	}
+	newTask.p = p
+	return newTask
+
+}
+
 
 // finishCopTask means we close the coprocessor task and create a root task.
 func finishCopTask(ctx sessionctx.Context, task task) task {

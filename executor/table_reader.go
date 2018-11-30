@@ -140,6 +140,14 @@ func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Ra
 		result.Fetch(ctx)
 		return result,nil ///this is needed to be recoveried
 	}
+	if e.sourceType == "postgresql"{
+		result,err := distsql.GetPGSelectResult(e.pathInfo,e.columns)
+		if err!=nil {
+			return nil,errors.Trace(err)
+		}
+		result.Fetch(ctx)
+		return result,nil
+	}
 
 	var builder distsql.RequestBuilder
 	kvReq, err := builder.SetTableRanges(e.physicalTableID, ranges, e.feedback).

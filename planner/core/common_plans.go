@@ -506,6 +506,8 @@ func (e *Explain) explainPlanInRowFormat(p PhysicalPlan, taskType, indent string
 	case *PhysicalTableReader:{
 		if copPlan.SourceType=="csv" {
 			e.explainPlanInRowFormat(copPlan.tablePlan, "csv", childIndent, true)
+		}else if copPlan.SourceType=="postgresql"{
+			e.explainPlanInRowFormat(copPlan.tablePlan, "postgresql", childIndent, true)
 		}else{
 			e.explainPlanInRowFormat(copPlan.tablePlan, "cop", childIndent, true)
 		}

@@ -17,6 +17,7 @@ import (
 	"bufio"
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/parser/mysql"
+	//"github.com/pingcap/tidb/planner/core"
 	"log"
 	"net/rpc"
 	"os"
@@ -41,6 +42,7 @@ var (
 	_ SelectResult = (*selectResult)(nil)
 	_ SelectResult = (*streamResult)(nil)
 	_ SelectResult = (*csvSelectResult)(nil)
+	_ SelectResult = (*pgSelectResult)(nil)
 )
 
 // SelectResult is an iterator of coprocessor partial results.
@@ -63,6 +65,196 @@ type resultWithErr struct {
 type row struct{
 	cols []interface{}
 }
+
+type pgSelectResult struct{
+	fieldTypes []*types.FieldType
+	isOver chan bool
+	over bool
+	dataChunck chan chunk.Chunk  //this is for data from csv
+	dataRow chan row
+	data chunk.Chunk //this is for data storage
+	dataR row
+	info []*model.ColumnInfo
+	//plans []core.PhysicalPlan
+}
+
+
+
+func (r *pgSelectResult) fetch(){
+	for{
+		break
+	}
+}
+
+func (r *pgSelectResult) Fetch(ctx context.Context) {
+	go r.fetch()
+}
+
+func (r *pgSelectResult) NextRaw(context.Context) ([]byte, error) {
+	log.Print("IN NEXTRAW")
+	return nil,nil
+}
+
+func (r *pgSelectResult) Next(ctx context.Context, chk *chunk.Chunk) error{
+	chk.Reset()
+	for {
+		if r.over==true && len(r.dataRow)==0 {
+			break
+		}
+		select{
+		case r.over = <-r.isOver:{
+			break
+		}
+		case r.dataR = <- r.dataRow :{
+			for i:=0;i< len(r.info);i++ {
+				switch r.info[i].Tp {
+				case mysql.TypeLong:
+					x,_ := r.dataR.cols[i].(int)
+					chk.AppendInt64(i,int64(x))
+				case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+					mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+					x,_ := r.dataR.cols[i].(string)
+					chk.AppendString(i,x)
+				}
+				case mysql.TypeFloat:{
+					x,_:=r.dataR.cols[i].(float64)
+					chk.AppendFloat32(i,float32(x))
+				}
+
+				}
+			}
+			break
+		}
+
+		}
+
+	}
+
+	return nil
+}
+
+func (r *pgSelectResult) Close() error{
+	return nil
+}
+
+
+type pgReader struct{
+	path string
+	isOver chan bool
+	dataChunck chan chunk.Chunk
+	dataRow chan row
+	info []*model.ColumnInfo
+	//schema
+	//plans []core.PhysicalPlan
+}
+
+type RequestPG struct{
+	SQL string
+	Count int
+}
+
+type ResultPG struct{
+	Result string
+}
+
+func (cR *pgReader) readPG(){
+	pathinfos := strings.Split(cR.path,"#")
+	address := pathinfos[0]+":"+pathinfos[1]
+	tableName := pathinfos[2]
+	client,err := rpc.DialHTTP("tcp",address)
+	if err!=nil {
+		log.Print(err)
+	}
+
+	//make the plan to sql
+	/*
+	TARGET LIST
+	*/
+	attr :=""
+	for i,item:=range cR.info{
+		if i>0 {
+			attr+=","
+		}
+		attr+=item.Name.L
+	}
+	/*
+	WHERE CONDITION
+	*/
+
+	/*conditionString := ""
+	conditionPlan := cR.plans[1]
+	conditionPlan2,ok:=conditionPlan.(*core.PhysicalSelection)
+	if ok {
+		conditions:=conditionPlan2.Conditions
+		for i,oneCondition:=range conditions{
+			if i>0 {
+				conditionString += "and "
+			}
+			//if it is a scalarfunction
+			tryFunction,ok := oneCondition.(*expression.ScalarFunction)
+			if ok {
+				//tryFunction.FuncName.L
+				//tryFunction.Function.
+			}
+		}
+	}*/
+
+	/*
+	THE FINAL SQL
+	*/
+	sql := "select "+attr + " from " + tableName
+	args := &RequestPG{sql,len(cR.info)}
+	var reply ResultPG
+	err = client.Call("PGX.Require",args,&reply)
+	if err!=nil {
+		log.Println(err)
+	}
+	recordss := strings.Split(reply.Result,",")
+	for _,record:=range recordss  {
+		records := strings.Split(record,"#")
+		dataVal := make([]interface{},0)
+		for i:=0;i<len(cR.info);i++  {
+			switch cR.info[i].Tp {
+			case mysql.TypeLong:{
+				x1,err1 := strconv.Atoi(string(records[i]))
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+				mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+				x1 := string(records[i])
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeFloat:{
+				//v1, err := strconv.ParseFloat(v, 32)
+				x1,err1 := strconv.ParseFloat(records[i],32)
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			}}
+		data := row{dataVal}
+		cR.dataRow<-data
+	}
+	cR.isOver<-true
+}
+
+
+func GetPGSelectResult(path string,info []*model.ColumnInfo)(SelectResult, error){
+	dataRowChan := make(chan row,1)
+	isOver := make(chan bool,1)
+	cReader := pgReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info}//plans:plans}
+	go (&cReader).readPG()
+	return &pgSelectResult{dataRow:dataRowChan,isOver:isOver,info:info},nil//plans:plans},nil
+}
+
+
+
+
+
 
 type csvSelectResult struct{
 	fieldTypes []*types.FieldType
