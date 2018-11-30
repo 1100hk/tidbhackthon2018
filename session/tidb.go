@@ -259,6 +259,7 @@ func RegisterStore(name string, driver kv.Driver) error {
 //
 // The engine should be registered before creating storage.
 func NewStore(path string) (kv.Storage, error) {
+	log.Println("hello NewStore",path)
 	return newStoreWithRetry(path, util.DefaultMaxRetries)
 }
 
@@ -268,7 +269,9 @@ func newStoreWithRetry(path string, maxRetries int) (kv.Storage, error) {
 		return nil, errors.Trace(err)
 	}
 
+
 	name := strings.ToLower(storeURL.Scheme)
+	log.Println("hello newStoreWithRetry",name)
 	d, ok := stores[name]
 	if !ok {
 		return nil, errors.Errorf("invalid uri format, storage %s is not registered", name)

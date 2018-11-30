@@ -138,7 +138,7 @@ func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Ra
 			return nil,errors.Trace(err)
 		}
 		result.Fetch(ctx)
-		return result,nil
+		return result,nil ///this is needed to be recoveried
 	}
 
 	var builder distsql.RequestBuilder

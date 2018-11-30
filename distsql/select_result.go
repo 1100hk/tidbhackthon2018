@@ -18,6 +18,7 @@ import (
 	"github.com/pingcap/parser/model"
 	"github.com/pingcap/parser/mysql"
 	"log"
+	"net/rpc"
 	"os"
 	"strconv"
 	"strings"
@@ -141,6 +142,70 @@ type csvReader struct{
 	info []*model.ColumnInfo
 	//schema
 }
+
+type Requestx2 struct{
+	Start int
+	TableName string
+	Offsets []int
+}
+
+type Resultx2 struct{
+	Count int
+	Result string
+}
+
+func (cR *csvReader) readFile2(){
+	pathinfos := strings.Split(cR.path,"#")
+	address := pathinfos[0]+":"+pathinfos[1]
+	csvName := pathinfos[2]
+	client,err := rpc.DialHTTP("tcp",address)
+	if err!=nil {
+		log.Print(err)
+	}
+	offsets := make([]int,0)
+	for i:=0;i<len(cR.info);i++  {
+		offsets = append(offsets,cR.info[i].Offset)
+	}
+	log.Println(offsets)
+	args := &Requestx2{0,csvName,offsets}
+	var reply Resultx2
+	err = client.Call("CSVX.Require",args,&reply)
+	if err!=nil {
+		log.Println(err)
+	}
+	recordss := strings.Split(reply.Result,",")
+	for _,record:=range recordss  {
+		records := strings.Split(record,"#")
+		dataVal := make([]interface{},0)
+		for i:=0;i<len(cR.info);i++  {
+			switch cR.info[i].Tp {
+			case mysql.TypeLong:{
+				x1,err1 := strconv.Atoi(string(records[i]))
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+				mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+				x1 := string(records[i])
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeFloat:{
+				//v1, err := strconv.ParseFloat(v, 32)
+				x1,err1 := strconv.ParseFloat(records[i],32)
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			}}
+		data := row{dataVal}
+		cR.dataRow<-data
+	}
+	cR.isOver<-true
+}
+
 func (cR *csvReader) readFile(){
 	//suppose we know the schema,later we need to store the schema,when init the csvReader
 	f,err := os.OpenFile(cR.path,os.O_RDONLY,0644)
@@ -196,7 +261,7 @@ func GetCSVSelectResult(path string,info []*model.ColumnInfo)(SelectResult, erro
 	dataRowChan := make(chan row,1)
 	isOver := make(chan bool,1)
 	cReader := csvReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info}
-	go (&cReader).readFile()
+	go (&cReader).readFile2()
 	return &csvSelectResult{dataRow:dataRowChan,isOver:isOver,info:info},nil
 }
 

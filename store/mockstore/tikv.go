@@ -14,6 +14,7 @@
 package mockstore
 
 import (
+	"log"
 	"net/url"
 	"strings"
 
@@ -31,6 +32,7 @@ type MockDriver struct {
 
 // Open creates a MockTiKV storage.
 func (d MockDriver) Open(path string) (kv.Storage, error) {
+	log.Print("hello Open",path)
 	u, err := url.Parse(path)
 	if err != nil {
 		return nil, errors.Trace(err)
