@@ -16,6 +16,9 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"log"
+
+	//"log"
 	"strconv"
 	"strings"
 
@@ -489,9 +492,52 @@ func (e *Explain) RenderResult() error {
 }
 
 // explainPlanInRowFormat generates explain information for root-tasks.
+func canPushDown(v *PhysicalHashJoin)string{
+	leftChild:=v.Children()[0]
+	rightChild:=v.Children()[1]
+	leftChildPh,ok1 := leftChild.(*PhysicalTableReader)
+	rightChildPh,ok2 := rightChild.(*PhysicalTableReader)
+	pushDownInfo := ""
+
+	if ok1 && ok2 {  //check wheather table reader
+		leftSourceType := leftChildPh.SourceType
+		rightSourceType := rightChildPh.SourceType
+		if leftSourceType=="postgresql" && rightSourceType=="postgresql"{ //check the sourcetype
+			leftRPCInfo := leftChildPh.Path
+			rightRPCInfo := rightChildPh.Path
+			lInfos := strings.Split(leftRPCInfo,"#")
+			rInfos := strings.Split(rightRPCInfo,"#")
+
+			if lInfos[0]==rInfos[0]&&lInfos[1]==rInfos[1] { //check them come from the same postgresql instance
+				lReaderPlan := leftChildPh.TablePlans[0]
+				rReaderPlan := rightChildPh.TablePlans[0]
+				_,oks1 := lReaderPlan.(*PhysicalTableScan)
+				_,oks2 := rReaderPlan.(*PhysicalTableScan)
+				if oks1 && oks2 { //make sure all is the base table scan method
+					pushDownInfo = "postgresql"
+				}
+			}
+		}
+
+	}
+	return pushDownInfo
+}
 func (e *Explain) explainPlanInRowFormat(p PhysicalPlan, taskType, indent string, isLastChild bool) {
+	taskPushdown := ""
+	hashPh,ok := p.(*PhysicalHashJoin)
+	if ok {
+		taskPushdown = canPushDown(hashPh)
+		log.Print(hashPh)
+	}
+	if taskPushdown!="" {
+		taskType=taskPushdown
+	}
+
 	e.prepareOperatorInfo(p, taskType, indent, isLastChild)
 	e.explainedPlans[p.ID()] = true
+
+	//if this is a pushdownhashjoin should all to be the same sourcetype
+
 
 	// For every child we create a new sub-tree rooted by it.
 	childIndent := e.getIndent4Child(indent, isLastChild)

@@ -20,6 +20,7 @@ import (
 	"github.com/pingcap/tidb/sessionctx"
 	"github.com/pingcap/tidb/types"
 	"log"
+	"strings"
 )
 
 type ppdSolver struct{}
@@ -106,8 +107,13 @@ func (ds *DataSource) PredicatePushDown(predicates []expression.Expression) ([]e
 	_, ds.pushedDownConds, predicates = expression.ExpressionsToPB(ds.ctx.GetSessionVars().StmtCtx, predicates, ds.ctx.GetClient())
 	if ds.SourceType=="postgresql" {
 		log.Print("For Bug")
+		log.Println(ds.tableInfo.Name.L)
 	}
-	ds.PushDownConditionString = expression.ExpressionToString(ds.pushedDownConds)
+	tableNamex := ""
+	if ds.PathInfo!="" {
+		tableNamex= strings.Split(ds.PathInfo,"#")[2]
+	}
+	ds.PushDownConditionString = expression.ExpressionToString(tableNamex,ds.pushedDownConds)
 	return predicates, ds
 }
 

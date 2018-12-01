@@ -32,16 +32,25 @@ import (
 )
 
 
-func ExpressionToString(conditions []Expression)string{
+func ExpressionToStringForJoinFilter(conditions []Expression,tableName string) string{
+
+	return ""
+}
+
+func ExpressionToString(tableName string,conditions []Expression)string{
 	conditionString := ""
+	flag:=1 //this is for specical case constant 1
 	for i,oneCondition:=range conditions{
-		if i>0 {
+		if i>0 && flag== 1 {
 			conditionString += " and "
 		}
 		//if it is a scalarfunction
 		tryFunction,ok := oneCondition.(*ScalarFunction)
 		if ok {
 			//tryFunction.FuncName.L
+			if i>0 {
+				flag=1
+			}
 			args:=tryFunction.Function.getArgs()
 			arg1 := args[0]
 			arg1Fi,_ := arg1.(*Column)
@@ -69,7 +78,7 @@ func ExpressionToString(conditions []Expression)string{
 
 			operateor := tryFunction.FuncName.L
 			if operateor=="lt" {
-				conditionString += string(leftArg)+"<";//+strconv.FormatInt(rightArg,10)
+				conditionString += tableName+"."+string(leftArg)+"<"//+strconv.FormatInt(rightArg,10)
 				switch which {
 				case 1:
 					conditionString+=strconv.FormatInt(rightArgForInt,10)
@@ -79,7 +88,7 @@ func ExpressionToString(conditions []Expression)string{
 					conditionString+=strconv.FormatFloat(rightArgForFloat, 'E', -1, 64)
 				}
 			}else if operateor=="eq"{
-				conditionString += string(leftArg)+"=";//+strconv.FormatInt(rightArg,10)
+				conditionString += tableName+"."+string(leftArg)+"="//+strconv.FormatInt(rightArg,10)
 				switch which {
 				case 1:
 					conditionString+=strconv.FormatInt(rightArgForInt,10)
@@ -89,7 +98,7 @@ func ExpressionToString(conditions []Expression)string{
 					conditionString+=strconv.FormatFloat(rightArgForFloat, 'E', -1, 64)
 				}
 			}else if operateor=="gt"{
-				conditionString += string(leftArg)+">";//+strconv.FormatInt(rightArg,10)
+				conditionString += tableName+"."+string(leftArg)+">"//+strconv.FormatInt(rightArg,10)
 				switch which {
 				case 1:
 					conditionString+=strconv.FormatInt(rightArgForInt,10)
@@ -100,10 +109,15 @@ func ExpressionToString(conditions []Expression)string{
 				}
 			}
 			//log.Println(conditionString)
+		}else{
+			if i==0 {
+				flag = 0
+			}
 		}
 	}
 	return conditionString
 }
+
 
 func JoinEQExpreesionToString(conditions []*ScalarFunction,leftName string,rightName string)string{
 	//we now just think there is only one eq condition

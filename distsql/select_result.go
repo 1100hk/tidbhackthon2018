@@ -209,7 +209,8 @@ func (cR *pgReader) readPG(){
 	/*
 	THE FINAL SQL
 	*/
-	sql := "select "+attr + " from " + tableName + " "+conditionString
+	sql := "select "+attr + " from " + tableName + " "+conditionString+";"
+	log.Println(sql)
 	args := &RequestPG{sql,len(cR.info)}
 	var reply ResultPG
 	err = client.Call("PGX.Require",args,&reply)

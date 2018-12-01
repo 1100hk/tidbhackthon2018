@@ -836,6 +836,40 @@ func (b *executorBuilder) buildMergeJoin(v *plannercore.PhysicalMergeJoin) Execu
 	return e
 }
 
+func CanPushDown(v *plannercore.PhysicalHashJoin)string{
+	leftChild:=v.Children()[0]
+	rightChild:=v.Children()[1]
+	leftChildPh,ok1 := leftChild.(*plannercore.PhysicalTableReader)
+	rightChildPh,ok2 := rightChild.(*plannercore.PhysicalTableReader)
+	pushDownInfo := ""
+
+	if ok1 && ok2 {  //check wheather table reader
+		leftSourceType := leftChildPh.SourceType
+		rightSourceType := rightChildPh.SourceType
+		if leftSourceType=="postgresql" && rightSourceType=="postgresql"{ //check the sourcetype
+			leftRPCInfo := leftChildPh.Path
+			rightRPCInfo := rightChildPh.Path
+			lInfos := strings.Split(leftRPCInfo,"#")
+			rInfos := strings.Split(rightRPCInfo,"#")
+
+			if lInfos[0]==rInfos[0]&&lInfos[1]==rInfos[1] { //check them come from the same postgresql instance
+				lReaderPlan := leftChildPh.TablePlans[0]
+				rReaderPlan := rightChildPh.TablePlans[0]
+				_,oks1 := lReaderPlan.(*plannercore.PhysicalTableScan)
+				_,oks2 := rReaderPlan.(*plannercore.PhysicalTableScan)
+				if oks1 && oks2 { //make sure all is the base table scan method
+					pushDownInfo = "postgresql"
+				}
+
+
+			}
+		}
+
+	}
+	return pushDownInfo
+}
+
+
 func (b *executorBuilder) buildHashJoin(v *plannercore.PhysicalHashJoin) Executor {
 	//BY LANHAI THIS IS NEED TO CHECK WHETHER THE TWO CHILD COME FROM postgresql if it is
 	//WE CAN PUSH IT DOWN TO PG
@@ -898,9 +932,40 @@ func (b *executorBuilder) buildHashJoin(v *plannercore.PhysicalHashJoin) Executo
 					if joinCondition!=nil {
 						onString = expression.JoinEQExpreesionToString(joinCondition,lTableName,rTableName)
 					}
+
+					//get all table self condition
+					//lReaderPlanPhyScan.
+
 					//ok now we can get the sql
-					sql := "select "+attrFinal+" from "+lTableName+","+rTableName+" where "+onString
+					sql := ""
+					if onString !=""{
+						sql = "select "+attrFinal+" from "+lTableName+","+rTableName+" where "+onString
+						if leftChildPh.PushDownCondition!=""{
+							sql +=" and "+leftChildPh.PushDownCondition
+						}
+						if rightChildPh.PushDownCondition!=""{
+							sql += " and "+ rightChildPh.PushDownCondition
+						}
+					}else{
+						sql = "select "+attrFinal+" from "+lTableName+","+rTableName
+						flag := 1
+						if leftChildPh.PushDownCondition!=""{
+							sql +=" where "+leftChildPh.PushDownCondition
+							flag =0
+						}
+						if rightChildPh.PushDownCondition!=""{
+							if flag==0 {
+								sql += " and "+ rightChildPh.PushDownCondition
+							}else{
+
+								sql +=" where "+rightChildPh.PushDownCondition
+								}
+						}
+					}
+
+
 					log.Println(sql)
+					sql+=";"
 
 					//GEN the executor
 					e := &PushDownJoinExec{baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ExplainID()),PushdownJoinSQL:sql,Results:v.Schema().Columns,PathInfo:lInfos[0]+"#"+lInfos[1]}
