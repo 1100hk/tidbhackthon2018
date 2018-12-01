@@ -36,7 +36,7 @@ func ExpressionToString(conditions []Expression)string{
 	conditionString := ""
 	for i,oneCondition:=range conditions{
 		if i>0 {
-			conditionString += "and "
+			conditionString += " and "
 		}
 		//if it is a scalarfunction
 		tryFunction,ok := oneCondition.(*ScalarFunction)
@@ -47,22 +47,59 @@ func ExpressionToString(conditions []Expression)string{
 			arg1Fi,_ := arg1.(*Column)
 			leftArg:=arg1Fi.ColName.L
 			arg2 := args[1].(*Constant)
-			//value2:=arg2.Value
-			/*switch value2.Kind() {
-			case :
-				d := *d.GetMysqlDecimal()
-				ret.SetMysqlDecimal(&d)
-			case KindMysqlTime:
-				ret.SetMysqlTime(d.GetMysqlTime())
-			}*/
-			rightArg:=arg2.Value.GetInt64()
+			value2:=arg2.Value
+			var rightArgForInt int64
+			var rightArgForStr string
+			var rightArgForFloat float64
+			which :=-1
+			switch value2.Kind() {
+			case types.KindInt64:
+				rightArgForInt =value2.GetInt64()
+				which=1
+			case types.KindString:
+				rightArgForStr = value2.GetString()
+				which=2
+			case types.KindFloat64:
+				rightArgForFloat = value2.GetFloat64()
+				which=3
+			}
+			//rightArg:=arg2.Value.GetInt64()
 			//log.Println(rightArg)
+			log.Println(rightArgForFloat)
 
 			operateor := tryFunction.FuncName.L
 			if operateor=="lt" {
-				conditionString += string(leftArg)+"<"+strconv.FormatInt(rightArg,10)
+				conditionString += string(leftArg)+"<";//+strconv.FormatInt(rightArg,10)
+				switch which {
+				case 1:
+					conditionString+=strconv.FormatInt(rightArgForInt,10)
+				case 2:
+					conditionString+=rightArgForStr
+				case 3:
+					conditionString+=strconv.FormatFloat(rightArgForFloat, 'E', -1, 64)
+				}
+			}else if operateor=="eq"{
+				conditionString += string(leftArg)+"=";//+strconv.FormatInt(rightArg,10)
+				switch which {
+				case 1:
+					conditionString+=strconv.FormatInt(rightArgForInt,10)
+				case 2:
+					conditionString+="'"+rightArgForStr+"'" //this is for postgreql grammer
+				case 3:
+					conditionString+=strconv.FormatFloat(rightArgForFloat, 'E', -1, 64)
+				}
+			}else if operateor=="gt"{
+				conditionString += string(leftArg)+">";//+strconv.FormatInt(rightArg,10)
+				switch which {
+				case 1:
+					conditionString+=strconv.FormatInt(rightArgForInt,10)
+				case 2:
+					conditionString+="'"+rightArgForStr+"'" //this is for postgreql grammer
+				case 3:
+					conditionString+=strconv.FormatFloat(rightArgForFloat, 'E', -1, 64)
+				}
 			}
-			//log.Println(conditionString)
+			log.Println(conditionString)
 		}
 	}
 	return conditionString
