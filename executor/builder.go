@@ -16,6 +16,7 @@ package executor
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strings"
@@ -836,6 +837,80 @@ func (b *executorBuilder) buildMergeJoin(v *plannercore.PhysicalMergeJoin) Execu
 }
 
 func (b *executorBuilder) buildHashJoin(v *plannercore.PhysicalHashJoin) Executor {
+	//BY LANHAI THIS IS NEED TO CHECK WHETHER THE TWO CHILD COME FROM postgresql if it is
+	//WE CAN PUSH IT DOWN TO PG
+	/*check condition
+	1) is hash join ok must be
+	2) check the two children source type(the children must be physicalTableReader Now) must be postgreql and from the same rpc address
+	3) if ok get the result column info tablename.colname
+	4) the firset version we ignore the filter and must be the eq join
+	5) construct the sql select tablename.colname from tablename1,tablename2 on tablename1.col = tablename2.col
+	6) build a new type pushDownPGHashJoinExecutor and return
+	*/
+	leftChild:=v.Children()[0]
+	rightChild:=v.Children()[1]
+	leftChildPh,ok1 := leftChild.(*plannercore.PhysicalTableReader)
+	rightChildPh,ok2 := rightChild.(*plannercore.PhysicalTableReader)
+
+	if ok1 && ok2 {  //check wheather table reader
+		leftSourceType := leftChildPh.SourceType
+		rightSourceType := rightChildPh.SourceType
+		if leftSourceType=="postgresql" && rightSourceType=="postgresql"{ //check the sourcetype
+			leftRPCInfo := leftChildPh.Path
+			rightRPCInfo := rightChildPh.Path
+			lInfos := strings.Split(leftRPCInfo,"#")
+			rInfos := strings.Split(rightRPCInfo,"#")
+
+			if lInfos[0]==rInfos[0]&&lInfos[1]==rInfos[1] { //check them come from the same postgresql instance
+				lTableName:= lInfos[2]
+				rTableName:= rInfos[2]
+				lReaderPlan := leftChildPh.TablePlans[0]
+				rReaderPlan := rightChildPh.TablePlans[0]
+				lReaderPlanPhyScan,oks1 := lReaderPlan.(*plannercore.PhysicalTableScan)
+				rReaderPlanPhyScan,oks2 := rReaderPlan.(*plannercore.PhysicalTableScan)
+				if oks1 && oks2 { //make sure all is the base table scan method
+					//get the left attr
+					lCols := lReaderPlanPhyScan.Columns
+					rCols := rReaderPlanPhyScan.Columns
+					lattr := ""
+					rattr := ""
+					for i,col:= range lCols{
+						if i>0 {
+							lattr += ","
+						}
+						lattr += lTableName+"."+col.Name.L
+					}
+					//get the right attr
+					for i,col:= range rCols{
+						if i>0 {
+							rattr += ","
+						}
+						rattr += rTableName+"."+col.Name.L
+					}
+
+					//attrtarget
+					attrFinal := lattr+","+rattr
+					log.Print(attrFinal)
+
+					//get the join condition
+					onString := ""
+					joinCondition:=v.EqualConditions
+					if joinCondition!=nil {
+						onString = expression.JoinEQExpreesionToString(joinCondition,lTableName,rTableName)
+					}
+					//ok now we can get the sql
+					sql := "select "+attrFinal+" from "+lTableName+","+rTableName+" where "+onString
+					log.Println(sql)
+				}
+
+
+			}
+		}
+
+	}
+
+
+
 	leftHashKey := make([]*expression.Column, 0, len(v.EqualConditions))
 	rightHashKey := make([]*expression.Column, 0, len(v.EqualConditions))
 	for _, eqCond := range v.EqualConditions {

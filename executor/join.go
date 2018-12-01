@@ -14,6 +14,7 @@
 package executor
 
 import (
+	"github.com/pingcap/parser/model"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -36,7 +37,27 @@ import (
 var (
 	_ Executor = &HashJoinExec{}
 	_ Executor = &NestedLoopApplyExec{}
+	_ Executor = &PushDownJoinExec{}
 )
+
+type row struct{
+	cols []interface{}
+}
+
+type PushDownJoinExec struct{
+	baseExecutor
+	//Results []*expression.Column
+	PushdownJoinSQL string
+	PathInfo string
+
+	path string
+	isOver chan bool
+	dataChunck chan chunk.Chunk
+	dataRow chan row
+	info []*model.ColumnInfo
+
+}
+
 
 // HashJoinExec implements the hash join algorithm.
 type HashJoinExec struct {

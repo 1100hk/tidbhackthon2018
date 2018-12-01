@@ -105,6 +105,19 @@ func ExpressionToString(conditions []Expression)string{
 	return conditionString
 }
 
+func JoinEQExpreesionToString(conditions []*ScalarFunction,leftName string,rightName string)string{
+	//we now just think there is only one eq condition
+	condition := conditions[0]
+	args := condition.GetArgs()
+	arg1 := args[0]
+	arg1Fi,_ := arg1.(*Column)
+	leftArg:=leftName+"."+arg1Fi.ColName.L
+	arg2,_ := args[1].(*Column)
+	rightArg:=rightName+"."+arg2.ColName.L
+	log.Println(leftArg+"="+rightArg)
+	return leftArg+"="+rightArg
+}
+
 // ExpressionsToPB converts expression to tipb.Expr.
 func ExpressionsToPB(sc *stmtctx.StatementContext, exprs []Expression, client kv.Client) (pbCNF *tipb.Expr, pushed []Expression, remained []Expression) {
 	pc := PbConverter{client: client, sc: sc}
