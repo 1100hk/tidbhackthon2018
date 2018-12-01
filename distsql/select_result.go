@@ -216,6 +216,10 @@ func (cR *pgReader) readPG(){
 	if err!=nil {
 		log.Println(err)
 	}
+	if reply.Result==""{
+		cR.isOver<-true
+		return
+	}
 	recordss := strings.Split(reply.Result,",")
 	for _,record:=range recordss  {
 		records := strings.Split(record,"#")
@@ -365,12 +369,15 @@ func (cR *csvReader) readFile2(){
 	for i:=0;i<len(cR.info);i++  {
 		offsets = append(offsets,cR.info[i].Offset)
 	}
-	log.Println(offsets)
 	args := &Requestx2{0,csvName,offsets}
 	var reply Resultx2
 	err = client.Call("CSVX.Require",args,&reply)
 	if err!=nil {
 		log.Println(err)
+	}
+	if reply.Result==""{
+		cR.isOver<-true
+		return
 	}
 	recordss := strings.Split(reply.Result,",")
 	for _,record:=range recordss  {
