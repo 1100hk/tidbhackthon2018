@@ -14,8 +14,12 @@
 package executor
 
 import (
-	"github.com/pingcap/parser/model"
+	"github.com/pingcap/parser/mysql"
+	"log"
 	"math"
+	"net/rpc"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -40,22 +44,146 @@ var (
 	_ Executor = &PushDownJoinExec{}
 )
 
+type RequestPG struct{
+	SQL string
+	Count int
+}
+
+type ResultPG struct{
+	Result string
+}
+
 type row struct{
 	cols []interface{}
 }
 
 type PushDownJoinExec struct{
 	baseExecutor
-	//Results []*expression.Column
+	Results []*expression.Column
 	PushdownJoinSQL string
 	PathInfo string
 
+	isOver chan bool
+	dataChunck chan chunk.Chunk
+	dataRow chan row
+	isover bool
+	dataR row
+	//info []*model.ColumnInfo
+
+}
+func (pdj *PushDownJoinExec) Close() error{
+	return nil
+}
+
+type pushDownJoinReader struct{
 	path string
 	isOver chan bool
 	dataChunck chan chunk.Chunk
 	dataRow chan row
-	info []*model.ColumnInfo
 
+	//schema
+	//plans []core.PhysicalPlan
+	Results []*expression.Column
+	pushDownConditions string
+	JoinSQL string
+}
+
+func (pdjReader *pushDownJoinReader)read(){
+	pathinfos := strings.Split(pdjReader.path,"#")
+	address := pathinfos[0]+":"+pathinfos[1]
+	client,err := rpc.DialHTTP("tcp",address)
+	if err!=nil {
+		log.Print(err)
+	}
+	args := &RequestPG{pdjReader.JoinSQL,len(pdjReader.Results)}
+	var reply ResultPG
+	err = client.Call("PGX.Require",args,&reply)
+	if err!=nil {
+		log.Println(err)
+	}
+	if reply.Result==""{
+		pdjReader.isOver<-true
+		return
+	}
+	recordss := strings.Split(reply.Result,",")
+	for _,record:=range recordss  {
+		records := strings.Split(record,"#")
+		dataVal := make([]interface{},0)
+		for i:=0;i<len(pdjReader.Results);i++  {
+			switch pdjReader.Results[i].RetType.Tp {
+			case mysql.TypeLong:{
+				x1,err1 := strconv.Atoi(string(records[i]))
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+				mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+				x1 := string(records[i])
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeFloat:{
+				//v1, err := strconv.ParseFloat(v, 32)
+				x1,err1 := strconv.ParseFloat(records[i],32)
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			}}
+		data := row{dataVal}
+		pdjReader.dataRow<-data
+	}
+	pdjReader.isOver<-true
+}
+
+func (pdj *PushDownJoinExec) Open(ctx context.Context) error{
+	dataRowChan := make(chan row,1)
+	isOver := make(chan bool,1)
+	pdj.isOver = isOver
+	pdj.dataRow = dataRowChan
+	pdjReader := pushDownJoinReader{path:pdj.PathInfo,Results:pdj.Results,JoinSQL:pdj.PushdownJoinSQL,dataRow:dataRowChan,isOver:isOver}
+	go (&pdjReader).read()
+	return nil
+}
+
+func (pdj *PushDownJoinExec) Next(ctx context.Context, chk *chunk.Chunk) error{
+	log.Println("In pushDown")
+	chk.Reset()
+	for {
+		if pdj.isover==true && len(pdj.dataRow)==0 {
+			break
+		}
+		select{
+		case pdj.isover = <-pdj.isOver:{
+			break
+		}
+		case pdj.dataR = <- pdj.dataRow :{
+			for i:=0;i< len(pdj.Results);i++ {
+				switch pdj.Results[i].RetType.Tp {
+				case mysql.TypeLong:
+					x,_ := pdj.dataR.cols[i].(int)
+					chk.AppendInt64(i,int64(x))
+				case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+					mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+					x,_ := pdj.dataR.cols[i].(string)
+					chk.AppendString(i,x)
+				}
+				case mysql.TypeFloat:{
+					x,_:=pdj.dataR.cols[i].(float64)
+					chk.AppendFloat32(i,float32(x))
+				}
+
+				}
+			}
+			break
+		}
+
+		}
+
+	}
+	return nil
 }
 
 
@@ -540,6 +668,7 @@ func (e *HashJoinExec) join2Chunk(workerID uint, outerChk *chunk.Chunk, joinResu
 // step 1. fetch data from inner child and build a hash table;
 // step 2. fetch data from outer child in a background goroutine and probe the hash table in multiple join workers.
 func (e *HashJoinExec) Next(ctx context.Context, chk *chunk.Chunk) (err error) {
+	log.Println("In OLDHASH")
 	if e.runtimeStats != nil {
 		start := time.Now()
 		defer func() { e.runtimeStats.Record(time.Now().Sub(start), chk.NumRows()) }()

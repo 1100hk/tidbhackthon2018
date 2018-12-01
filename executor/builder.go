@@ -901,6 +901,10 @@ func (b *executorBuilder) buildHashJoin(v *plannercore.PhysicalHashJoin) Executo
 					//ok now we can get the sql
 					sql := "select "+attrFinal+" from "+lTableName+","+rTableName+" where "+onString
 					log.Println(sql)
+
+					//GEN the executor
+					e := &PushDownJoinExec{baseExecutor: newBaseExecutor(b.ctx, v.Schema(), v.ExplainID()),PushdownJoinSQL:sql,Results:v.Schema().Columns,PathInfo:lInfos[0]+"#"+lInfos[1]}
+					return e
 				}
 
 
