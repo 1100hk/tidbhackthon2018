@@ -244,12 +244,12 @@ func finishCSVTask(ctx sessionctx.Context, task task,path string) task{
 
 }
 
-func finishPGTask(ctx sessionctx.Context, task task,path string) task{
+func finishPGTask(ctx sessionctx.Context, task task,path string,pushedDownCondition string) task{
 	t,ok := task.(*copTask) //we just use the copTask to wrapper the csvTask
 	if !ok{
 		return task
 	}
-	p := PhysicalTableReader{tablePlan: t.tablePlan,SourceType:"postgresql",Path:path}.Init(ctx)
+	p := PhysicalTableReader{tablePlan: t.tablePlan,SourceType:"postgresql",Path:path,PushDownCondition:pushedDownCondition}.Init(ctx)
 	p.stats = t.tablePlan.statsInfo()
 	newTask := &rootTask{
 		cst: t.cst,

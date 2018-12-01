@@ -75,6 +75,7 @@ type pgSelectResult struct{
 	data chunk.Chunk //this is for data storage
 	dataR row
 	info []*model.ColumnInfo
+	pushDownConditions string
 	//plans []core.PhysicalPlan
 }
 
@@ -146,6 +147,7 @@ type pgReader struct{
 	info []*model.ColumnInfo
 	//schema
 	//plans []core.PhysicalPlan
+	pushDownConditions string
 }
 
 type RequestPG struct{
@@ -180,8 +182,13 @@ func (cR *pgReader) readPG(){
 	/*
 	WHERE CONDITION
 	*/
+	log.Println(cR.pushDownConditions)
 
-	/*conditionString := ""
+	conditionString := ""
+	if cR.pushDownConditions!="" {
+		conditionString += "where " + cR.pushDownConditions
+	}
+	/*
 	conditionPlan := cR.plans[1]
 	conditionPlan2,ok:=conditionPlan.(*core.PhysicalSelection)
 	if ok {
@@ -202,7 +209,7 @@ func (cR *pgReader) readPG(){
 	/*
 	THE FINAL SQL
 	*/
-	sql := "select "+attr + " from " + tableName
+	sql := "select "+attr + " from " + tableName + " "+conditionString
 	args := &RequestPG{sql,len(cR.info)}
 	var reply ResultPG
 	err = client.Call("PGX.Require",args,&reply)
@@ -243,12 +250,12 @@ func (cR *pgReader) readPG(){
 }
 
 
-func GetPGSelectResult(path string,info []*model.ColumnInfo)(SelectResult, error){
+func GetPGSelectResult(path string,info []*model.ColumnInfo,pushDownConditions string)(SelectResult, error){
 	dataRowChan := make(chan row,1)
 	isOver := make(chan bool,1)
-	cReader := pgReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info}//plans:plans}
+	cReader := pgReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info,pushDownConditions:pushDownConditions}//plans:plans}
 	go (&cReader).readPG()
-	return &pgSelectResult{dataRow:dataRowChan,isOver:isOver,info:info},nil//plans:plans},nil
+	return &pgSelectResult{dataRow:dataRowChan,isOver:isOver,info:info,pushDownConditions:pushDownConditions},nil//plans:plans},nil
 }
 
 

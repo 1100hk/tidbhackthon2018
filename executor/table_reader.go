@@ -58,6 +58,7 @@ type TableReaderExecutor struct {
 	plans          []plannercore.PhysicalPlan
 	sourceType string
 	pathInfo string
+	PushDownCondition string
 }
 
 // Open initialzes necessary variables for using this executor.
@@ -141,7 +142,7 @@ func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Ra
 		return result,nil ///this is needed to be recoveried
 	}
 	if e.sourceType == "postgresql"{
-		result,err := distsql.GetPGSelectResult(e.pathInfo,e.columns)
+		result,err := distsql.GetPGSelectResult(e.pathInfo,e.columns,e.PushDownCondition)
 		if err!=nil {
 			return nil,errors.Trace(err)
 		}

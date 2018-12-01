@@ -313,6 +313,7 @@ type DataSource struct {
 
 	SourceType string //this is used to know where the ds from
 	PathInfo string //if SourceType is csv ,we need know where it come from
+	PushDownConditionString string
 }
 
 // accessPath tells how we access one index or just access table.

@@ -60,6 +60,8 @@ type PhysicalTableReader struct {
 	// TablePlans flats the tablePlan to construct executor pb.
 	TablePlans []PhysicalPlan
 	tablePlan  PhysicalPlan
+
+	PushDownCondition string
 }
 
 // PhysicalIndexReader is the index reader in tidb.

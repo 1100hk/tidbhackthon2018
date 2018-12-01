@@ -14,6 +14,7 @@
 package expression
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/pingcap/errors"
@@ -29,6 +30,43 @@ import (
 	"github.com/pingcap/tipb/go-tipb"
 	log "github.com/sirupsen/logrus"
 )
+
+
+func ExpressionToString(conditions []Expression)string{
+	conditionString := ""
+	for i,oneCondition:=range conditions{
+		if i>0 {
+			conditionString += "and "
+		}
+		//if it is a scalarfunction
+		tryFunction,ok := oneCondition.(*ScalarFunction)
+		if ok {
+			//tryFunction.FuncName.L
+			args:=tryFunction.Function.getArgs()
+			arg1 := args[0]
+			arg1Fi,_ := arg1.(*Column)
+			leftArg:=arg1Fi.ColName.L
+			arg2 := args[1].(*Constant)
+			//value2:=arg2.Value
+			/*switch value2.Kind() {
+			case :
+				d := *d.GetMysqlDecimal()
+				ret.SetMysqlDecimal(&d)
+			case KindMysqlTime:
+				ret.SetMysqlTime(d.GetMysqlTime())
+			}*/
+			rightArg:=arg2.Value.GetInt64()
+			//log.Println(rightArg)
+
+			operateor := tryFunction.FuncName.L
+			if operateor=="lt" {
+				conditionString += string(leftArg)+"<"+strconv.FormatInt(rightArg,10)
+			}
+			//log.Println(conditionString)
+		}
+	}
+	return conditionString
+}
 
 // ExpressionsToPB converts expression to tipb.Expr.
 func ExpressionsToPB(sc *stmtctx.StatementContext, exprs []Expression, client kv.Client) (pbCNF *tipb.Expr, pushed []Expression, remained []Expression) {

@@ -650,7 +650,7 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 	}else if prop.TaskTp == property.CSVTaskType{
 		task = finishCSVTask(ds.ctx, task,ds.PathInfo)
 	}else if prop.TaskTp == property.PGTaskTYPE{
-		task = finishPGTask(ds.ctx, task,ds.PathInfo)
+		task = finishPGTask(ds.ctx, task,ds.PathInfo,ds.PushDownConditionString)
 	} else if _, ok := task.(*rootTask); ok {
 		return invalidTask, nil
 	}
