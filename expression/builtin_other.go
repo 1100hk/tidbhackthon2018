@@ -98,7 +98,7 @@ func (b *builtinUnregisterCSVSig) evalInt(row chunk.Row) (int64, bool, error) {
 	//	_, _, err := ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(ctx, sql)
 	//	return errors.Trace(err)
 	tableName, _, _ := b.args[0].EvalString(b.ctx, row)
-	sql := fmt.Sprintf(`DELETE FROM mysql.csv_register  where table_name="%s"`,tableName)
+	sql := fmt.Sprintf(`DELETE FROM mysql.foreign_register  where table_name="%s"`,tableName)
 	_,_,err := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
 	if err!=nil {
 		return int64(1),false,nil
@@ -139,7 +139,7 @@ func (b *builtinRegisterCSVSig) evalInt(row chunk.Row) (int64, bool, error) {
 	tableName, _, _ := b.args[0].EvalString(b.ctx, row)
 	sourceType, _, _ := b.args[1].EvalString(b.ctx, row)
 	pathInfo, _, _ := b.args[2].EvalString(b.ctx, row)
-	sql := fmt.Sprintf(`INSERT INTO mysql.csv_register  VALUES ("%s", "%s", "%s")`,tableName ,sourceType ,pathInfo )
+	sql := fmt.Sprintf(`INSERT INTO mysql.foreign_register  VALUES ("%s", "%s", "%s")`,tableName ,sourceType ,pathInfo )
 	_,_,err := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
 	if err!=nil {
 		return int64(1),false,nil

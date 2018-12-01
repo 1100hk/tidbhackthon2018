@@ -65,7 +65,7 @@ func ExpressionToString(conditions []Expression)string{
 			}
 			//rightArg:=arg2.Value.GetInt64()
 			//log.Println(rightArg)
-			log.Println(rightArgForFloat)
+			//log.Println(rightArgForFloat)
 
 			operateor := tryFunction.FuncName.L
 			if operateor=="lt" {
@@ -99,7 +99,7 @@ func ExpressionToString(conditions []Expression)string{
 					conditionString+=strconv.FormatFloat(rightArgForFloat, 'E', -1, 64)
 				}
 			}
-			log.Println(conditionString)
+			//log.Println(conditionString)
 		}
 	}
 	return conditionString

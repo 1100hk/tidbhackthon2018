@@ -1900,11 +1900,11 @@ func (b *PlanBuilder) buildDataSource(tn *ast.TableName) (LogicalPlan, error) {
 	}
 	//there should be to visit the system table to know :SourceType and Path
 	var sourceType,pathInfo string
-	if tn.Name.L=="csv_register" {
+	if tn.Name.L=="foreign_register" {
 
 	}else{
 		///_,sourceType,pathInfo = getDataSourceInfo(tn.Name.L)
-		sql := fmt.Sprintf("select * from mysql.csv_register where table_name='%s';",tn.Name.L)
+		sql := fmt.Sprintf("select * from mysql.foreign_register where table_name='%s';",tn.Name.L)
 		rows ,_,_ := b.ctx.(sqlexec.RestrictedSQLExecutor).ExecRestrictedSQL(b.ctx, sql)
 		if len(rows)==1{
 			//log.Println("find it")

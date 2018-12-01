@@ -210,7 +210,7 @@ const (
 		index hist(table_id, is_index, hist_id)
 	);`
 
-	CreateRegisterCSVTable = `CREATE TABLE IF NOT EXISTS mysql.csv_register (
+	CreateRegisterForeignTable = `CREATE TABLE IF NOT EXISTS mysql.foreign_register (
 		table_name text NOT NULL,
 		source_type text NOT NULL,
 		path_info text NOT NULL
@@ -727,7 +727,7 @@ func doDDLWorks(s Session) {
 	// Create stats_feedback table.
 	mustExecute(s, CreateStatsFeedbackTable)
 	
-	mustExecute(s,CreateRegisterCSVTable)
+	mustExecute(s,CreateRegisterForeignTable)
 }
 
 // doDMLWorks executes DML statements in bootstrap stage.
