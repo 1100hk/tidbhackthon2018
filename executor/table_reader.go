@@ -14,6 +14,7 @@
 package executor
 
 import (
+	"log"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
@@ -143,6 +144,16 @@ func (e *TableReaderExecutor) buildResp(ctx context.Context, ranges []*ranger.Ra
 	}
 	if e.sourceType == "postgresql"{
 		result,err := distsql.GetPGSelectResult(e.pathInfo,e.columns,e.PushDownCondition)
+		if err!=nil {
+			return nil,errors.Trace(err)
+		}
+		result.Fetch(ctx)
+		return result,nil
+	}
+	if e.sourceType == "redis"{
+		log.Print("redis")
+		log.Println("table_reader:",e.PushDownCondition)
+		result,err:=distsql.GetRedisSelectResult(e.pathInfo,e.columns,e.PushDownCondition)
 		if err!=nil {
 			return nil,errors.Trace(err)
 		}

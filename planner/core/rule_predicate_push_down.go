@@ -110,10 +110,16 @@ func (ds *DataSource) PredicatePushDown(predicates []expression.Expression) ([]e
 		log.Println(ds.tableInfo.Name.L)
 	}
 	tableNamex := ""
-	if ds.PathInfo!="" {
+	if ds.PathInfo!="" && ds.SourceType!="redis"{
 		tableNamex= strings.Split(ds.PathInfo,"#")[2]
 	}
-	ds.PushDownConditionString = expression.ExpressionToString(tableNamex,ds.pushedDownConds)
+	if ds.SourceType=="redis" {
+		log.Println(ds.PushDownConditionString)
+		ds.PushDownConditionString=expression.ExpressionToStringForRedis(ds.pushedDownConds)
+		log.Println(ds.PushDownConditionString)
+	}else{
+		ds.PushDownConditionString = expression.ExpressionToString(tableNamex,ds.pushedDownConds)
+	}
 	return predicates, ds
 }
 

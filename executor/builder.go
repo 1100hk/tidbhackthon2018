@@ -1800,6 +1800,7 @@ func buildNoRangeTableReader(b *executorBuilder, v *plannercore.PhysicalTableRea
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	//log.Println("buildNorangetablereader",v.PushDownCondition)
 	ts := v.TablePlans[0].(*plannercore.PhysicalTableScan)
 	table, _ := b.is.TableByID(ts.Table.ID)
 	e := &TableReaderExecutor{

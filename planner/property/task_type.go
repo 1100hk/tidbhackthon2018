@@ -32,6 +32,8 @@ const (
 	CSVTaskType
 
 	PGTaskTYPE
+
+	RedisTaskTYPE
 )
 
 // String implements fmt.Stringer interface.

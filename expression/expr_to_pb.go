@@ -37,6 +37,38 @@ func ExpressionToStringForJoinFilter(conditions []Expression,tableName string) s
 	return ""
 }
 
+func ExpressionToStringForRedis(conditions []Expression)string{
+	conditionString := ""
+	for i,oneCondition := range conditions  {
+		//just to consider first  condition(if have)
+		if i>0 {
+			break
+		}
+		tryFunction,ok := oneCondition.(*ScalarFunction)
+		if ok {
+			args:=tryFunction.Function.getArgs()
+			/*arg1 := args[0]
+			arg1Fi,_ := arg1.(*Column)
+			leftArg:=arg1Fi.ColName.L*/
+			arg2,_:= args[1].(*Constant)
+			value2:=arg2.Value
+			rightArgForStr := value2.GetString()
+			//conditionString=
+			operateor := tryFunction.FuncName.L
+			if operateor=="like"{
+				conditionString = "2#"+rightArgForStr
+			}else if operateor=="eq" {
+				conditionString = "1#"+rightArgForStr
+			}else {
+
+			}
+		}
+
+	}
+	return conditionString
+
+}
+
 func ExpressionToString(tableName string,conditions []Expression)string{
 	conditionString := ""
 	flag:=1 //this is for specical case constant 1

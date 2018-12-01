@@ -339,6 +339,20 @@ func (ds *DataSource) findBestTask(prop *property.PhysicalProperty) (t task, err
 				}
 				continue
 			}
+			if ds.SourceType == "redis"{
+				prop.TaskTp=property.RedisTaskTYPE
+				tblTask, err := ds.convertToTableScan(prop, path)
+				if err!=nil {
+					return nil,errors.Trace(err)
+				}
+				if tblTask.cost() < t.cost() {
+					return &csvTask{
+						p:tblTask.plan(),
+						path:ds.PathInfo,
+					},nil
+				}
+				continue
+			}
 		}
 		if path.isTablePath {
 			tblTask, err := ds.convertToTableScan(prop, path)
@@ -651,7 +665,9 @@ func (ds *DataSource) convertToTableScan(prop *property.PhysicalProperty, path *
 		task = finishCSVTask(ds.ctx, task,ds.PathInfo)
 	}else if prop.TaskTp == property.PGTaskTYPE{
 		task = finishPGTask(ds.ctx, task,ds.PathInfo,ds.PushDownConditionString)
-	} else if _, ok := task.(*rootTask); ok {
+	} else if prop.TaskTp == property.RedisTaskTYPE{
+		task = finishRedisTask(ds.ctx, task,ds.PathInfo,ds.PushDownConditionString)
+	}else if _, ok := task.(*rootTask); ok {
 		return invalidTask, nil
 	}
 	return task, nil

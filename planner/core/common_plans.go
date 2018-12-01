@@ -554,6 +554,8 @@ func (e *Explain) explainPlanInRowFormat(p PhysicalPlan, taskType, indent string
 			e.explainPlanInRowFormat(copPlan.tablePlan, "csv", childIndent, true)
 		}else if copPlan.SourceType=="postgresql"{
 			e.explainPlanInRowFormat(copPlan.tablePlan, "postgresql", childIndent, true)
+		}else if copPlan.SourceType=="redis"{
+			e.explainPlanInRowFormat(copPlan.tablePlan, "redis", childIndent, true)
 		}else{
 			e.explainPlanInRowFormat(copPlan.tablePlan, "cop", childIndent, true)
 		}

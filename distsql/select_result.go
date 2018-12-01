@@ -43,6 +43,7 @@ var (
 	_ SelectResult = (*streamResult)(nil)
 	_ SelectResult = (*csvSelectResult)(nil)
 	_ SelectResult = (*pgSelectResult)(nil)
+	_ SelectResult = (*redisSelectResult)(nil)
 )
 
 // SelectResult is an iterator of coprocessor partial results.
@@ -263,9 +264,185 @@ func GetPGSelectResult(path string,info []*model.ColumnInfo,pushDownConditions s
 	return &pgSelectResult{dataRow:dataRowChan,isOver:isOver,info:info,pushDownConditions:pushDownConditions},nil//plans:plans},nil
 }
 
+type RequestRedis struct{
+	/*
+	1)support key match:point and RE[1,2]
+	2)value:point [3]
+	3)the first version is just string forms
+	4)no condition read all k{v}[4]
+	*/
+	QueryType int
+	Offsets []int //0 for key and 1 for value
+	Value string //this is prama eg:a="b" b is para
+	Count int
+}
+
+type ResultRedis struct{
+	Result string //the same as pg and csv
+}
+
+type redisSelectResult struct{
+	fieldTypes []*types.FieldType
+	isOver chan bool
+	over bool
+	dataChunck chan chunk.Chunk  //this is for data from csv
+	dataRow chan row
+	data chunk.Chunk //this is for data storage
+	dataR row
+	info []*model.ColumnInfo
+	pushDownConditions string
+}
+
+func (r *redisSelectResult) fetch(){
+	for{
 
 
+		break
+	}
+}
 
+func (r *redisSelectResult) Fetch(ctx context.Context) {
+	go r.fetch()
+}
+
+func (r *redisSelectResult) NextRaw(context.Context) ([]byte, error) {
+	log.Print("IN NEXTRAW")
+	return nil,nil
+}
+
+func (r *redisSelectResult) Next(ctx context.Context, chk *chunk.Chunk) error{
+	chk.Reset()
+	for {
+		if r.over==true && len(r.dataRow)==0 {
+			break
+		}
+		select{
+		case r.over = <-r.isOver:{
+			break
+		}
+		case r.dataR = <- r.dataRow :{
+			for i:=0;i< len(r.info);i++ {
+				switch r.info[i].Tp {
+				case mysql.TypeLong:
+					x,_ := r.dataR.cols[i].(int)
+					chk.AppendInt64(i,int64(x))
+				case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+					mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+					x,_ := r.dataR.cols[i].(string)
+					chk.AppendString(i,x)
+				}
+				case mysql.TypeFloat:{
+					x,_:=r.dataR.cols[i].(float64)
+					chk.AppendFloat32(i,float32(x))
+				}
+
+				}
+			}
+			break
+		}
+
+		}
+
+	}
+
+	return nil
+}
+
+func (r *redisSelectResult) Close() error{
+	return nil
+}
+
+
+type redisReader struct{
+	path string
+	isOver chan bool
+	dataChunck chan chunk.Chunk
+	dataRow chan row
+	info []*model.ColumnInfo
+	pushDownConditions string
+	//schema
+}
+func (cR *redisReader) readRedis(){
+	pathinfos := strings.Split(cR.path,"#")
+	address := pathinfos[0]+":"+pathinfos[1]
+	//csvName := pathinfos[2] no need just to connect rpc
+	client,err := rpc.DialHTTP("tcp",address)
+	if err!=nil {
+		log.Print(err)
+	}
+	offsets := make([]int,0)
+	for i:=0;i<len(cR.info);i++  {
+		offsets = append(offsets,cR.info[i].Offset)
+	}
+	//this part is commint from the pushDownCondtitions
+	parax:=""
+	queryType:=100
+	if cR.pushDownConditions=="" {
+		queryType=	4
+	}else{
+		log.Println("sss",cR.pushDownConditions)
+		infos:=strings.Split(cR.pushDownConditions,"#")
+		queryType ,_= strconv.Atoi(infos[0])
+		if queryType==1 {
+			parax= infos[1]
+		}else if queryType==2{
+			parax = infos[1]+"*"
+		}
+	}
+	log.Println("Redis")
+	args := &RequestRedis{queryType,offsets,parax,0}
+	log.Println(args)
+	var reply ResultRedis
+	err = client.Call("RedisXX.Require",args,&reply)
+	if err!=nil {
+		log.Println(err)
+	}
+	if reply.Result==""{
+		cR.isOver<-true
+		return
+	}
+	recordss := strings.Split(reply.Result,",")
+	for _,record:=range recordss  {
+		records := strings.Split(record,"#")
+		dataVal := make([]interface{},0)
+		for i:=0;i<len(cR.info);i++  {
+			switch cR.info[i].Tp {
+			case mysql.TypeLong:{
+				x1,err1 := strconv.Atoi(string(records[i]))
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeString, mysql.TypeVarString, mysql.TypeVarchar,
+				mysql.TypeBlob, mysql.TypeTinyBlob, mysql.TypeMediumBlob, mysql.TypeLongBlob:{
+				x1 := string(records[i])
+				dataVal = append(dataVal,x1)
+			}
+			case mysql.TypeFloat:{
+				//v1, err := strconv.ParseFloat(v, 32)
+				x1,err1 := strconv.ParseFloat(records[i],32)
+				if  err1 != nil {
+					log.Print(err1)
+				}
+				dataVal = append(dataVal,x1)
+			}
+			}}
+		data := row{dataVal}
+		cR.dataRow<-data
+	}
+	cR.isOver<-true
+}
+
+
+//BY LANHAI:this function will be called to create a csvSR
+func GetRedisSelectResult(path string,info []*model.ColumnInfo,pushDownConditions string)(SelectResult, error){
+	dataRowChan := make(chan row,1)
+	isOver := make(chan bool,1)
+	redisReader := redisReader{path:path,dataRow:dataRowChan,isOver:isOver,info:info,pushDownConditions:pushDownConditions}
+	go (&redisReader).readRedis()
+	return &redisSelectResult{dataRow:dataRowChan,isOver:isOver,info:info,pushDownConditions:pushDownConditions},nil
+}
 
 
 type csvSelectResult struct{

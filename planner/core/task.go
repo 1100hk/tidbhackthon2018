@@ -15,6 +15,7 @@ package core
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/pingcap/parser/charset"
@@ -259,6 +260,20 @@ func finishPGTask(ctx sessionctx.Context, task task,path string,pushedDownCondit
 
 }
 
+func finishRedisTask(ctx sessionctx.Context, task task,path string,pushedDownCondition string)task{
+	t,ok := task.(*copTask) //we just use the copTask to wrapper the csvTask
+	log.Print(pushedDownCondition)
+	if !ok{
+		return task
+	}
+	p := PhysicalTableReader{tablePlan: t.tablePlan,SourceType:"redis",Path:path,PushDownCondition:pushedDownCondition}.Init(ctx)
+	p.stats = t.tablePlan.statsInfo()
+	newTask := &rootTask{
+		cst: t.cst,
+	}
+	newTask.p = p
+	return newTask
+}
 
 // finishCopTask means we close the coprocessor task and create a root task.
 func finishCopTask(ctx sessionctx.Context, task task) task {
